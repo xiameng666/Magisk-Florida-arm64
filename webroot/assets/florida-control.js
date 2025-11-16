@@ -38,6 +38,37 @@ const confirmStop = document.getElementById('confirmStop');
 
 let isRunning = false;
 const MODULE_CFG = '/data/adb/modules/magisk-hluda/module.cfg';
+const BIN_DIR = '/data/adb/modules/magisk-hluda/system/bin';
+
+// Scan available Florida versions
+async function scanVersions() {
+    try {
+        const { stdout } = await exec(`ls ${BIN_DIR}/florida-* 2>/dev/null | xargs -n1 basename`);
+        const binaries = stdout.trim().split('\n').filter(f => f.startsWith('florida-'));
+
+        // Extract version numbers
+        const versions = binaries.map(bin => bin.replace('florida-', '')).filter(v => v);
+
+        if (versions.length === 0) {
+            toast('No Florida versions found');
+            return [];
+        }
+
+        // Populate version select
+        versionSelect.innerHTML = '';
+        versions.forEach(ver => {
+            const option = document.createElement('option');
+            option.value = ver;
+            option.textContent = ver;
+            versionSelect.appendChild(option);
+        });
+
+        return versions;
+    } catch (err) {
+        console.error('Failed to scan versions:', err);
+        return [];
+    }
+}
 
 // Load current settings
 async function loadSettings() {
@@ -142,8 +173,8 @@ function updateStatus(running) {
 
 // Update module.prop description
 async function updateModuleProp(running) {
-    const version = versionSelect.value === '17.5.1' || versionSelect.value === '1751' ? '17.5.1' : '16.0.3';
-    const desc = running ? `Running✅ | v${version}` : `Stopped❌ | v${version}`;
+    const version = versionSelect.value;
+    const desc = running ? `Running✅ | ${version}` : `Stopped❌ | ${version}`;
     try {
         await exec(`sed -i "s/^description=.*/description=[${desc}]/" /data/adb/modules/magisk-hluda/module.prop`);
     } catch (err) {
@@ -165,7 +196,7 @@ async function checkStatus() {
 // Start server
 async function startServer(port, params, version) {
     // Determine binary name based on version
-    const binary = version === '17.5.1' || version === '1751' ? 'florida-17.5.1' : 'florida-1603';
+    const binary = `florida-${version}`;
     const cmd = `${binary} -D -l 0.0.0.0:${port}`;
     const fullCmd = params ? `${cmd} ${params}` : cmd;
 
@@ -180,7 +211,7 @@ async function startServer(port, params, version) {
 
         // Wait a bit and check status
         setTimeout(checkStatus, 500);
-        toast('Server started successfully');
+        toast(`Server ${version} started successfully`);
     } catch (err) {
         toast(`Failed to start server: ${err.message}`);
         updateStatus(false);
@@ -255,7 +286,14 @@ confirmStop.addEventListener('click', async () => {
 });
 
 // Initialize
-loadSettings().then(() => {
+(async function init() {
+    // First scan available versions
+    await scanVersions();
+
+    // Then load settings
+    await loadSettings();
+
+    // Start status monitoring
     checkStatus();
     setInterval(checkStatus, 500);
-});
+})();

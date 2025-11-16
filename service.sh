@@ -21,18 +21,12 @@ fi
 
 # Source config and update initial status
 . "$MODULE_CFG"
-# Determine version display
-VERSION_DISPLAY="${version:-1603}"
-if [ "$VERSION_DISPLAY" = "17.5.1" ] || [ "$VERSION_DISPLAY" = "1751" ]; then
-   VERSION_DISPLAY="17.5.1"
-else
-   VERSION_DISPLAY="16.0.3"
-fi
+VERSION_DISPLAY="${version:-unknown}"
 
 if [ "$status" = "1" ]; then
-   sed -i "s/^description=.*/description=[Running✅ | v$VERSION_DISPLAY]/" "$MODULE_PROP"
+   sed -i "s/^description=.*/description=[Running✅ | $VERSION_DISPLAY]/" "$MODULE_PROP"
 else
-   sed -i "s/^description=.*/description=[Stopped❌ | v$VERSION_DISPLAY]/" "$MODULE_PROP"
+   sed -i "s/^description=.*/description=[Stopped❌ | $VERSION_DISPLAY]/" "$MODULE_PROP"
 fi
 
 # Read configuration from module.cfg
@@ -42,16 +36,17 @@ if [ -f "$MODULE_CFG" ]; then
 
    # Check if service should start (status=1)
    if [ "$status" = "1" ]; then
-       # Determine which binary to use based on version parameter
-       FLORIDA_BIN="florida-1603"  # Default version
-       if [ "$version" = "17.5.1" ] || [ "$version" = "1751" ]; then
-           FLORIDA_BIN="florida-17.5.1"
-       elif [ "$version" = "1603" ] || [ "$version" = "16.0.3" ]; then
-           FLORIDA_BIN="florida-1603"
+       # Use version from config to determine binary name
+       FLORIDA_BIN="florida-${version}"
+
+       # Check if binary exists
+       if [ ! -f "/system/bin/$FLORIDA_BIN" ]; then
+           sed -i "s/^description=.*/description=[Binary Not Found: $version ⚠️]/" "$MODULE_PROP"
+           exit 1
        fi
 
        # Start service if not running
-       if ! pgrep -x "$FLORIDA_BIN" > /dev/null; then
+       if ! pgrep -f "$FLORIDA_BIN" > /dev/null; then
            # Build command with port and parameters
            CMD="$FLORIDA_BIN -D -l 0.0.0.0:$port"
 
@@ -67,7 +62,7 @@ if [ -f "$MODULE_CFG" ]; then
        fi
    else
        # Update module.prop to show stopped status
-       sed -i 's/^description=.*/description=[Stopped❌]/' "$MODULE_PROP"
+       sed -i "s/^description=.*/description=[Stopped❌ | $VERSION_DISPLAY]/" "$MODULE_PROP"
    fi
 else
    # Log error if config file is missing
