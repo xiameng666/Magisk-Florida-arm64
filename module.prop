@@ -1,0 +1,7 @@
+id=magisk-hluda
+name=Frida(Florida) Server on Boot
+version=16.0.3
+versionCode=1603
+author=XiaM
+description=Runs a stealthier frida-server on boot
+updateJson=https://github.com/exo1i/magiskhluda/releases/latest/download/update.json
